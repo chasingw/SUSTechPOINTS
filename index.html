@@ -34,9 +34,15 @@
 							<select id="frame-selector">
 									<option>--frame--</option>
 							</select>
-							<select id="camera-selector">
+							<!-- <select id="camera-selector">
 									<option>--camera--</option>
-							</select>
+							</select> -->
+							<div id="camera-selector">
+								<span>Camera</span>
+								<div id="camera-list">									
+								</div>
+							</div>
+
 						</div>
 
 						<select id="object-selector">
@@ -198,7 +204,7 @@
 									<div id="object-dropdown-menu" class="non-selectable">
 										<div class="menu-item" id="cm-delete-obj">
 											<div class="menu-item-icon"></div>
-											<div class="menu-item-text">Delete (all) in other frames</div>
+											<div class="menu-item-text">Delete this object (in all frames)</div>
 										</div>
 										<div class="menu-item" id="cm-modify-obj-type">
 											<div class="menu-item-icon"></div>
@@ -271,23 +277,15 @@
 						</div>
 					</div>
 
-					<div id="maincanvas-wrapper">
-						<svg id = "maincanvas-svg" viewbox="0 0 2048 1536" preserveAspectRatio="none">
-							<image id="svg-image" x="0" y="0"  width="2048" height="1536"  preserveAspectRatio="none"
-							xlink:href=""
-							/>
-							<g id="svg-boxes"></g>
-							<g id="svg-points"></g>
-						</svg>
-						<div id="move-handle">
-						</div>
-					</div>
+					
 					
 					<div id="main-box-editor-wrapper"></div>
 					<div id="batch-box-editor">
 						<div id="batch-box-editor-header"></div>
 						<div id="batch-box-editor-group"></div>
 					</div>
+
+					
 
 				</div>
 				
@@ -457,7 +455,7 @@
 
 						<div class="menu-item" id="cm-delete-obj">
 							<div class="menu-item-icon"></div>
-							<div class="menu-item-text">Delete (all) in other frames</div>
+							<div class="menu-item-text">Delete this object (in all frames)</div>
 						</div>
 						<div class="menu-item" id="cm-modify-obj-type">
 							<div class="menu-item-icon"></div>
@@ -531,6 +529,17 @@
 							<div class="menu-item-text">Select all next</div>
 						</div>
 
+						
+
+						<div class="menu-item menu-seperator"></div>
+						<div class="menu-item" id="cm-delete-empty-boxes">
+							<div class="menu-item-icon">							
+							</div>
+							<div class="menu-item-text">Delete empty boxes</div>
+						</div>
+
+
+						
 						<div class="menu-item menu-seperator"></div>
 
 						<div class="menu-item" id="cm-delete">
@@ -539,14 +548,12 @@
 							<div class="menu-item-text"><u>D</u>elete</div>
 						</div>
 
-						<div class="menu-item" id="cm-delete-empty-boxes">
+						<div class="menu-item" id="cm-delete-intersected-boxes">
 							<div class="menu-item-icon">							
 							</div>
-							<div class="menu-item-text">Delete empty boxes</div>
+							<div class="menu-item-text">Delete intersected boxes</div>
 						</div>
-
-						<div class="menu-item menu-seperator"></div>
-
+						
 						<div class="menu-item" id="cm-interpolate">
 							<div class="menu-item-icon">							
 							</div>
@@ -613,7 +620,22 @@
 
 						<div class="menu-item menu-seperator"></div>
 
-						<div class="menu-item" id="cm-this">
+						<div class="menu-item" id="cm-goto-this-frame">
+							<div class="menu-item-text"><u>G</u>o to this frame</div>
+						</div>
+
+
+						<div class="menu-item" id="cm-sync-size">
+							<div class="menu-item-text">Sync size to all</div>
+						</div>
+
+						<div class="menu-item" id="cm-follow-static-objects">
+							<div class="menu-item-text">Follow static objects</div>
+						</div>	
+						
+						
+
+						<!-- <div class="menu-item" id="cm-this">
 							<div class="menu-item-icon"></div>
 							<div class="menu-item-text">This frame</div>
 							<div class="menu-item-arrow menu-item-icon">
@@ -622,18 +644,9 @@
 								</g></svg>
 							</div>
 							<div id="cm-this-submenu">
-								<div class="menu-item" id="cm-sync-size">
-									<div class="menu-item-text">Sync size to all</div>
-								</div>
-								<div class="menu-item" id="cm-follow-static-objects">
-									<div class="menu-item-text">Follow static objects</div>
-								</div>	
 								
-								<div class="menu-item" id="cm-goto-this-frame">
-									<div class="menu-item-text">Go to this frame</div>
-								</div>
 							</div>
-						</div>
+						</div> -->
 						
 
    					    <div class="menu-item menu-seperator"></div>
@@ -773,6 +786,14 @@
 									<input type="checkbox" id="cfg-auto-rotate-xy-checkbox" class="cfg-widget">
 								</div>
 							</div>
+
+							<div class="menu-nonclickable-item" id="cfg-auto-update-interpolated-boxes">
+								<span>Auto update interploated boxes</span>
+								<div class="cfg-widget-group">
+									<input type="checkbox" id="cfg-auto-update-interpolated-boxes-checkbox" class="cfg-widget">
+								</div>
+							</div>
+
 
 							<div class="menu-item menu-seperator"></div>
 
@@ -1227,7 +1248,20 @@
 				</div>
 			</div>
 		</template>
-
+		<template id="image-wrapper-template">
+			<div class="image-wrapper">
+				<svg id = "maincanvas-svg" viewbox="0 0 2048 1536" preserveAspectRatio="none">
+					<image id="svg-image" x="0" y="0"  width="2048" height="1536"  preserveAspectRatio="none"
+					xlink:href=""
+					/>
+					<g id="svg-boxes"></g>
+					<g id="svg-points"></g>
+				</svg>
+				<div id="move-handle">
+				</div>
+				<header id="header"></header>
+			</div>
+		</template>
 
 		<script src="/static/js/lib/ml/tf.min.js"></script>
 		<script type="module"  src="/static/js/main.js"></script>		

@@ -132,8 +132,43 @@ canvas {
 	background-color: inherit;
 	color: inherit;
 	border-width: 0;	
-	display: inline-block;
+	display: inline-block;	
 }
+
+#camera-selector {
+	position: relative;	
+	padding-right: 5px;
+	padding-left: 5px;
+}
+
+#camera-list {
+	position: absolute;
+	top: 100%;
+	left: 0%;
+	background-color: inherit;
+	width: 250px;
+	z-index: 1;
+}
+
+.camera-item {
+	-webkit-user-select: none; /* Safari */        
+	-moz-user-select: none; /* Firefox */
+	-ms-user-select: none; /* IE10+/Edge */
+	user-select: none; /* Standard */
+
+	float: left;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+.camera-selected {
+	color: var(--highlight-color);
+}
+
+.camera-item:hover {
+	background-color: var(--highlight-background-color);
+}
+
 
 #object-track-id-editor, #attr-input
 {
@@ -215,16 +250,33 @@ canvas {
 	padding: 0px;
 }
 
-#maincanvas-wrapper #move-handle{
+.image-wrapper #move-handle{
 	position: absolute;
 	top: 0%;
 	left: 0%;
 	width: 100%;
-	height: 90%;
+	height: 90%;	
 }
 
-line {
+.image-wrapper #header{
+	position: absolute;
+	top: 0%;
+	left: 0%;	
+	color: red;
+	padding-left: 5px;
+}
+
+/* line {
 	stroke-width: 2;
+} */
+
+/* .box-svg :hover{
+	stroke-width: 5px;
+} */
+
+
+.box-svg{
+	stroke-width: 3px;
 }
 
 /* 
@@ -235,6 +287,7 @@ dynamic set obj-type css has higher priority than this one.
 .box-svg-selected{
 	stroke: #ff00ff88;
 	fill: #ff00ff22;
+	stroke-width: 2px;
 }
 
 .maincanvas-line{
@@ -256,7 +309,7 @@ dynamic set obj-type css has higher priority than this one.
 
 }
 
-#maincanvas-wrapper {
+.image-wrapper {
 	position: absolute;
 	resize:both;
 	overflow:hidden;
@@ -342,6 +395,7 @@ dynamic set obj-type css has higher priority than this one.
 .attr-item:hover {
 	background-color: var(--highlight-background-color);
 }
+
 #camera {
 	width:100%;
 	height:100%;

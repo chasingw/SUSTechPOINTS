@@ -198,17 +198,38 @@ function BoxImageContext(ui){
 
 class ImageContext extends MovableView{
 
-    constructor(ui, cfg, on_img_click){
+    constructor(parentUi, name, autoSwitch, cfg, on_img_click){
 
+        // create ui
+        let template = document.getElementById("image-wrapper-template");
+        let tool = template.content.cloneNode(true);
+        // this.boxEditorHeaderUi.appendChild(tool);
+        // return this.boxEditorHeaderUi.lastElementChild;
+
+        parentUi.appendChild(tool);
+        let ui = parentUi.lastElementChild;
         let handle = ui.querySelector("#move-handle");
         super(handle, ui);
 
         this.ui = ui;
         this.cfg = cfg;
         this.on_img_click = on_img_click;
+        this.autoSwitch = autoSwitch;
+        this.setImageName(name);
     }
     
-    choose_best_camera_for_point = choose_best_camera_for_point;
+    remove(){
+        this.ui.remove();    
+    }
+
+
+    setImageName(name)
+    {
+        this.name = name;
+        this.ui.querySelector("#header").innerText = (this.autoSwitch?"auto-":"")+name;
+    }
+
+    
     get_selected_box = null;
 
 
@@ -262,6 +283,7 @@ class ImageContext extends MovableView{
     show(){
             this.ui.style.display="";
         };
+    
     
     
     drawing = false;
@@ -445,15 +467,15 @@ class ImageContext extends MovableView{
     
 
 
-    get_active_calib(){
+    getCalib(){
         var scene_meta = this.world.sceneMeta;
            
         if (!scene_meta.calib.camera){
             return null;
         }
 
-        var active_camera_name = this.world.cameras.active_name;
-        var calib = scene_meta.calib.camera[active_camera_name];
+        //var active_camera_name = this.world.cameras.active_name;
+        var calib = scene_meta.calib.camera[this.name];
 
         return calib;
     }
@@ -462,7 +484,7 @@ class ImageContext extends MovableView{
 
 
     get_trans_ratio(){
-        var img = this.world.cameras.active_image();       
+        var img = this.world.cameras.getImageByName(this.name);       
 
         if (!img || img.width==0){
             return null;
@@ -485,7 +507,7 @@ class ImageContext extends MovableView{
         var svgimage = this.ui.querySelector("#svg-image");
 
         // active img is set by global, it's not set sometimes.
-        var img = this.world.cameras.active_image();
+        var img = this.world.cameras.getImageByName(this.name);
         if (img){
             svgimage.setAttribute("xlink:href", img.src);
         }
@@ -573,7 +595,7 @@ class ImageContext extends MovableView{
 
     draw_svg(){
         // draw picture
-        var img = this.world.cameras.active_image();       
+        var img = this.world.cameras.getImageByName(this.name);
 
         if (!img || img.width==0){
             this.hide_canvas();
@@ -584,7 +606,7 @@ class ImageContext extends MovableView{
 
         var trans_ratio = this.get_trans_ratio();
 
-        var calib = this.get_active_calib();
+        var calib = this.getCalib();
         if (!calib){
             return;
         }
@@ -650,7 +672,7 @@ class ImageContext extends MovableView{
         svg.setAttribute("id", "svg-box-local-"+box.obj_local_id);
 
         if (selected){
-            svg.setAttribute("class", box.obj_type+" box-svg-selected");
+            svg.setAttribute("class", box.obj_type+" box-svg box-svg-selected");
         } else{
             if (box.world.data.cfg.color_obj == "id")
             {
@@ -658,7 +680,7 @@ class ImageContext extends MovableView{
             }
             else // by id
             {
-                svg.setAttribute("class", box.obj_type);
+                svg.setAttribute("class", box.obj_type + " box-svg");
             }
         }
 
@@ -704,14 +726,14 @@ class ImageContext extends MovableView{
     }
 
 
-    image_manager = {
+    boxes_manager = {
         display_image: ()=>{
             if (!this.cfg.disableMainImageContext)
                 this.render_2d_image();
         },
 
         add_box: (box)=>{
-            var calib = this.get_active_calib();
+            var calib = this.getCalib();
             if (!calib){
                 return;
             }
@@ -769,7 +791,7 @@ class ImageContext extends MovableView{
 
             var children = b.childNodes;
 
-            var calib = this.get_active_calib();
+            var calib = this.getCalib();
             if (!calib){
                 return;
             }
@@ -822,6 +844,233 @@ class ImageContext extends MovableView{
 
 }
 
+
+class ImageContextManager {
+    constructor(parentUi, selectorUi, cfg, on_img_click){
+        this.parentUi = parentUi;
+        this.selectorUi = selectorUi;
+        this.cfg = cfg;
+        this.on_img_click = on_img_click;
+
+        this.addImage("", true);
+
+
+        this.selectorUi.onmouseenter=function(event){
+            if (this.timerId)
+            {
+                clearTimeout(this.timerId);
+                this.timerId = null;
+            }
+            
+            event.target.querySelector("#camera-list").style.display="";
+
+        };
+
+
+        this.selectorUi.onmouseleave=function(event){
+            let ui = event.target.querySelector("#camera-list");
+
+            this.timerId = setTimeout(()=>{
+                ui.style.display="none";
+                this.timerId = null;
+            },
+            200);           
+
+        };
+
+        this.selectorUi.querySelector("#camera-list").onclick = (event)=>{
+            let cameraName = event.target.innerText;
+            
+            if (cameraName == "auto"){
+
+                let existed = this.images.find(x=>x.autoSwitch);
+
+                if (existed)
+                {
+                    this.removeImage(existed);
+                }
+                else
+                {
+                    this.addImage("", true);
+                }
+
+            }
+            else{
+                let existed = this.images.find(x=>!x.autoSwitch && x.name == cameraName);
+
+                if (existed)
+                {
+                    this.removeImage(existed);
+                    
+                }
+                else
+                {
+                    this.addImage(cameraName);
+                }
+            }
+        };
+
+    }
+
+    updateCameraList(cameras){
+
+        let autoCamera = '<div class="camera-item" id="camera-item-auto">auto</div>';
+
+        if (this.images.find(i=>i.autoSwitch)){
+            autoCamera = '<div class="camera-item camera-selected" id="camera-item-auto">auto</div>';
+        }
+
+        let camera_selector_str = cameras.map(c=>{
+
+                let existed = this.images.find(i=>i.name == c && !i.autoSwitch);
+                let className = existed?"camera-item camera-selected":"camera-item";
+
+                return `<div class="${className}" id="camera-item-${c}">${c}</div>`;
+            }).reduce((x,y)=>x+y,  autoCamera);
+
+        let ui = this.selectorUi.querySelector("#camera-list");
+        ui.innerHTML = camera_selector_str;
+        ui.style.display="none";
+
+        this.setDefaultBestCamera(cameras[0]);
+    }
+
+    setDefaultBestCamera(c){
+
+        if (!this.bestCamera)
+        {
+            let existed = this.images.find(x=>x.autoSwitch);
+            if (existed)
+            {
+                existed.setImageName(c);
+            }
+
+            this.bestCamera = c;
+        }
+    }
+
+    images = [];
+    addImage(name, autoSwitch)
+    {
+
+        if (autoSwitch && this.bestCamera && !name)
+            name = this.bestCamera;
+            
+        let image = new ImageContext(this.parentUi, name, autoSwitch, this.cfg, this.on_img_click);
+
+        this.images.push(image);
+
+        if (this.init_image_op_para){
+            image.init_image_op(this.init_image_op_para);
+        }
+
+        if (this.world){
+            image.attachWorld(this.world);
+            image.render_2d_image();
+        }
+
+
+        let selectorName = autoSwitch?"auto":name;
+            
+        let ui = this.selectorUi.querySelector("#camera-item-"+selectorName);
+        if (ui)
+            ui.className = "camera-item camera-selected";
+
+
+        return image;
+    }
+
+    removeImage(image){
+
+        let selectorName = image.autoSwitch?"auto":image.name;
+        this.selectorUi.querySelector("#camera-item-"+selectorName).className = "camera-item";
+        this.images = this.images.filter(x=>x!=image);
+        image.remove();
+
+
+    }
+
+    setBestCamera(camera)
+    {
+        this.images.filter(i=>i.autoSwitch).forEach(i=>{
+            i.setImageName(camera);
+            i.boxes_manager.display_image();
+        });
+
+        this.bestCamera = camera;
+    }
+
+    render_2d_image(){
+        this.images.forEach(i=>i.render_2d_image());
+    }
+
+    attachWorld(world){
+
+        this.world = world;
+        this.images.forEach(i=>i.attachWorld(world));
+    }
+
+    hide(){
+        this.images.forEach(i=>i.hide());
+    }
+
+
+    show(){
+        this.images.forEach(i=>i.show());
+    }
+
+    clear_main_canvas(){
+        this.images.forEach(i=>i.clear_main_canvas());
+    }
+
+    init_image_op(op){
+        this.init_image_op_para = op;
+        this.images.forEach(i=>i.init_image_op(op));
+    }
+    hidden(){
+        return false;
+    }
+
+    choose_best_camera_for_point = choose_best_camera_for_point;
+
+    self = this;
+
+    boxes_manager = {
+        
+        display_image: ()=>{
+            if (!this.cfg.disableMainImageContext)
+                this.render_2d_image();
+        },
+
+        add_box: (box)=>{
+            this.images.forEach(i=>i.boxes_manager.add_box(box));
+        },
+
+
+        onBoxSelected: (box_obj_local_id, obj_type)=>{
+            this.images.forEach(i=>i.boxes_manager.onBoxSelected(box_obj_local_id, obj_type));
+        },
+
+
+        onBoxUnselected: (box_obj_local_id, obj_type)=>{
+            this.images.forEach(i=>i.boxes_manager.onBoxUnselected(box_obj_local_id, obj_type));
+        },
+
+        remove_box: (box_obj_local_id)=>{
+            this.images.forEach(i=>i.boxes_manager.remove_box(box_obj_local_id));
+        },
+
+        update_obj_type: (box_obj_local_id, obj_type)=>{
+            this.images.forEach(i=>i.boxes_manager.update_obj_type(box_obj_local_id, obj_type));
+        },
+        
+        update_box: (box)=>{
+            this.images.forEach(i=>i.boxes_manager.update_box(box));
+        }
+    }
+    
+
+}
 
 function box_to_2d_points(box, calib){
     var scale = box.scale;
@@ -958,4 +1207,4 @@ function  choose_best_camera_for_point(scene_meta, center){
 }
 
 
-export {ImageContext, BoxImageContext};
+export {ImageContextManager, BoxImageContext};

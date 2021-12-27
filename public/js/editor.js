@@ -4,7 +4,7 @@ import {ViewManager} from "./view.js";
 import {FastToolBox, FloatLabelManager} from "./floatlabel.js";
 import {Mouse} from "./mouse.js";
 import {BoxEditor, BoxEditorManager} from "./box_editor.js";
-import {ImageContext} from "./image.js";
+import {ImageContextManager} from "./image.js";
 import {globalObjectCategory} from "./obj_cfg.js";
 
 import {objIdManager} from "./obj_id_list.js";
@@ -61,7 +61,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
     this.calib = new Calib(this.data, this);
 
     this.header = null;
-    this.imageContext = null;
+    this.imageContextManager = null;
     this.boxOp = null;
     this.boxEditorManager  = null; 
     this.params={};
@@ -116,8 +116,9 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             this.editorCfg);
         
 
-        this.imageContext = new ImageContext(
-                 this.editorUi.querySelector("#maincanvas-wrapper"), 
+        this.imageContextManager = new ImageContextManager(
+                this.editorUi.querySelector("#content"), 
+                this.editorUi.querySelector("#camera-selector"),
                 this.editorCfg,
                 (lidar_points)=>this.on_img_click(lidar_points));
 
@@ -187,7 +188,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             (b,r)=>this.remove_box(b,r),   // on box remove
             ()=>{
                 // this.on_load_world_finished(this.data.world);
-                // this.imageContext.hide();
+                // this.imageContextManager.hide();
                 // this.floatLabelManager.hide();
 
                 // this.viewManager.mainView.disable();
@@ -252,10 +253,8 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         this.render();
         //$( "#maincanvas" ).resizable();
         
-        let self = this;
-        this.imageContext.init_image_op(function(){
-            return self.selected_box;
-        });
+        
+        this.imageContextManager.init_image_op(()=>this.selected_box);
 
         this.add_global_obj_type();        
     };
@@ -708,13 +707,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         /// object
 
         case "cm-reset-view":
-            {
-                let pos = this.data.world.lidarPosToScene({x:0, y:0, z:50});
-                this.viewManager.mainView.orbit.object.position.set(pos.x, pos.y, pos.z);  //object is camera
-                this.viewManager.mainView.orbit.target.set(pos.x, pos.y, 0);
-                this.viewManager.mainView.orbit.update(); 
-                this.render();
-            }
+            this.resetView();
             break;
         case "cm-delete":
             this.remove_selected_box();
@@ -722,21 +715,8 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             break;
 
         case "cm-edit-multiple-instances":
-            {
-                if (!this.checkBoxTrackId())
-                    break;
-
-                if (!this.checkAnnBeforeBatchEdit())
-                    break;
-                this.header.setObject(this.selected_box.obj_track_id);
-
-                this.editBatch(
-                    this.data.world.frameInfo.scene,
-                    this.data.world.frameInfo.frame,
-                    this.selected_box.obj_track_id,
-                    this.selected_box.obj_type
-                );
-            }
+            this.enterBatchEditMode();
+            
             break;
         case "cm-auto-ann-background":
             {
@@ -818,10 +798,11 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
                         w.annotation.remove_box(box);
                         //saveList.push(w);
                         w.annotation.setModified();
-                    }                
+                    }
                 });
 
                 //saveWorldList(saveList);
+                this.remove_selected_box();
                 this.header.updateModifiedStatus();
             }
             break;
@@ -898,6 +879,19 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
     };
 
     
+    this.resetView = function(targetPos){
+
+        if (!targetPos)
+            targetPos = {x:0, y:0, z:50};
+        else
+            targetPos.z = 50;
+
+        let pos = this.data.world.lidarPosToScene(targetPos);
+        this.viewManager.mainView.orbit.object.position.set(pos.x, pos.y, pos.z);  //object is camera
+        this.viewManager.mainView.orbit.target.set(pos.x, pos.y, 0);
+        this.viewManager.mainView.orbit.update(); 
+        this.render();
+    };
 
     this.scene_changed= async function(sceneName){
         
@@ -924,10 +918,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         
         
         if (meta.camera){
-            var camera_selector_str = meta.camera.map(function(c){
-                return '<option value="'+c+'">'+c+'</option>';
-            }).reduce(function(x,y){return x+y;}, "<option>--camera--</option>");
-            this.editorUi.querySelector("#camera-selector").innerHTML = camera_selector_str;
+            this.imageContextManager.updateCameraList(meta.camera);
         }
 
         //load_obj_ids_of_scene(sceneName);
@@ -1010,7 +1001,23 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             this.viewManager.render();
         });
     };
+    this.enterBatchEditMode = function()
+    {
+        if (!this.checkBoxTrackId())
+           return;
 
+        if (!this.checkAnnBeforeBatchEdit())
+            return;
+
+        this.header.setObject(this.selected_box.obj_track_id);
+
+        this.editBatch(
+            this.data.world.frameInfo.scene,
+            this.data.world.frameInfo.frame,
+            this.selected_box.obj_track_id,
+            this.selected_box.obj_type
+        );
+    };
 
     this.autoAnnInBackground = function()
     {
@@ -1043,7 +1050,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
         //this.keydownDisabled = true;
         // hide something
-        this.imageContext.hide();
+        this.imageContextManager.hide();
         this.floatLabelManager.hide();
 
         //this.floatLabelManager.showFastToolbox();
@@ -1065,7 +1072,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
                 //this.keydownDisabled = false;
                 this.viewManager.mainView.enable();
 
-                this.imageContext.show();
+                this.imageContextManager.show();
                 this.floatLabelManager.show();
 
                 if (targetTrackId)
@@ -1092,10 +1099,25 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
                 if (targetFrame)
                 {
-                    this.load_world(this.data.world.frameInfo.scene, targetFrame);
+                    this.load_world(this.data.world.frameInfo.scene, targetFrame, ()=>{  // onfinished
+                        this.makeVisible(targetTrackId);
+                    });
                 }
             }
             );
+    };
+
+    this.makeVisible = function(targetTrackId){
+        let box = this.data.world.annotation.findBoxByTrackId(targetTrackId);
+
+        if (box){
+            if (this.selected_box != box){
+                this.selectBox(box);
+            }
+
+            this.resetView({x:box.position.x, y:box.position.y, z:50});
+        }
+
     };
 
     this.object_changed = function(event){
@@ -1110,7 +1132,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         var camera_name = event.currentTarget.value;
 
         this.data.set_active_image(camera_name);
-        this.imageContext.render_2d_image();
+        this.imageContextManager.render_2d_image();
 
         event.currentTarget.blur();
     };
@@ -1141,7 +1163,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             this.floatLabelManager.set_object_type(this.selected_box.obj_local_id, this.selected_box.obj_type);
             // this.header.mark_changed_flag();
             // this.updateBoxPointsColor(this.selected_box);
-            // this.imageContext.image_manager.update_obj_type(this.selected_box.obj_local_id, this.selected_box.obj_type);
+            // this.imageContextManager.boxes_manager.update_obj_type(this.selected_box.obj_local_id, this.selected_box.obj_type);
 
             // this.render();
             this.on_box_changed(this.selected_box);
@@ -1303,7 +1325,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
         this.scene.add(box);
         
-        this.imageContext.image_manager.add_box(box);
+        this.imageContextManager.boxes_manager.add_box(box);
         
         
         this.boxOp.auto_shrink_box(box);
@@ -1381,11 +1403,16 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         
         let initRoationZ = this.viewManager.mainView.camera.rotation.z + Math.PI/2;
 
-        var box = this.create_box_by_points(points, initRoationZ);
+        let box = this.create_box_by_points(points, initRoationZ);
+
+        let id = objIdManager.generateNewUniqueId();
+        box.obj_track_id = id;
+
+        
 
         //this.scene.add(box);
         
-        this.imageContext.image_manager.add_box(box);
+        
         
         if (!shift){
             try{
@@ -1401,6 +1428,14 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         
         box.obj_type = globalObjectCategory.guess_obj_type_by_dimension(box.scale);
         
+        objIdManager.addObject({
+            category: box.obj_type,
+            id: box.obj_track_id,
+        });
+
+
+
+        this.imageContextManager.boxes_manager.add_box(box);
         this.floatLabelManager.add_label(box);
 
         this.selectBox(box);
@@ -1556,7 +1591,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
                             this.view_state.lock_obj_track_id = "";
                         }
 
-                        this.imageContext.image_manager.onBoxUnselected(this.selected_box.obj_local_id, this.selected_box.obj_type);
+                        this.imageContextManager.boxes_manager.onBoxUnselected(this.selected_box.obj_local_id, this.selected_box.obj_type);
                         this.selected_box = null;
                         this.boxEditor.detach();
 
@@ -1590,7 +1625,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
                 this.selected_box.material.opacity = this.data.cfg.box_opacity;                
                 //this.floatLabelManager.unselect_box(this.selected_box.obj_local_id);
                 this.fastToolBox.hide();
-                this.imageContext.image_manager.onBoxUnselected(this.selected_box.obj_local_id, this.selected_box.obj_type);
+                this.imageContextManager.boxes_manager.onBoxUnselected(this.selected_box.obj_local_id, this.selected_box.obj_type);
 
                 this.selected_box = null;
                 this.boxEditor.detach();
@@ -1624,18 +1659,20 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
             // switch camera
             if (!this.editorCfg.disableMainImageContext){
-                var best_image = this.imageContext.choose_best_camera_for_point(
+                var best_camera = this.imageContextManager.choose_best_camera_for_point(
                     this.selected_box.world.frameInfo.sceneMeta,
                     this.selected_box.position);
 
-                if (best_image){
+                if (best_camera){
                     
-                    var image_changed = this.data.set_active_image(best_image);
+                    //var image_changed = this.data.set_active_image(best_camera);
 
-                    if (image_changed){
-                        this.editorUi.querySelector("#camera-selector").value=best_image;
-                        this.imageContext.image_manager.display_image();
-                    }
+                    // if (image_changed){
+                    //     this.editorUi.querySelector("#camera-selector").value=best_camera;
+                    //     this.imageContextManager.boxes_manager.display_image();
+                    // }
+
+                    this.imageContextManager.setBestCamera(best_camera);
                 }
             }
 
@@ -1777,7 +1814,15 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         };
 
         pos.z = -1.8 + scale.z/2;  // -1.8 is height of lidar
-        let box = this.add_box(pos, scale, rotation, obj_type, "");
+
+        let id = objIdManager.generateNewUniqueId();
+
+        objIdManager.addObject({
+            category: obj_type,
+            id: id,
+        });
+
+        let box = this.add_box(pos, scale, rotation, obj_type, id);
         
         return box;
     };
@@ -1787,7 +1832,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
         this.floatLabelManager.add_label(box);
         
-        this.imageContext.image_manager.add_box(box);
+        this.imageContextManager.boxes_manager.add_box(box);
 
         this.selectBox(box);
         return box;
@@ -1947,9 +1992,9 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
                 this.downloadWebglScreenShot();
                 break;
             
-            case 'v':
-                this.change_transform_control_view();
-                break;
+            // case 'v':
+            //     this.change_transform_control_view();
+            //     break;
             /*
             case 'm':
             case 'M':
@@ -2156,7 +2201,9 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
                 //this.transform_bbox("reset");
                 this.showTrajectory();
                 break;
-            
+            case 'v':
+                this.enterBatchEditMode();
+                break;
             case 'd':
             case 'D':
                 if (ev.ctrlKey){
@@ -2287,8 +2334,8 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         this.unselectBox(null, true);
         this.unselectBox(null, true);
         this.render();
-        this.imageContext.attachWorld(world);
-        this.imageContext.render_2d_image();
+        this.imageContextManager.attachWorld(world);
+        this.imageContextManager.render_2d_image();
         this.render2dLabels(world);
         this.update_frame_info(world.frameInfo.scene, world.frameInfo.frame);
 
@@ -2328,7 +2375,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         
     };
 
-    this.load_world = async function(sceneName, frame){
+    this.load_world = async function(sceneName, frame, onFinished){
 
         this.data.dbg.dump();
 
@@ -2359,7 +2406,8 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
                 world, 
                 function(){
                     self.on_load_world_finished(world);
-
+                    if (onFinished)
+                        onFinished();
                     
                 }
             );
@@ -2377,6 +2425,13 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             //this.remove_selected_box();
         } 
         
+
+
+        this.do_remove_box(box, false); // render later.
+
+        // this should be after do-remove-box
+        // subview renderings don't need to be done again after
+        // the box is removed.
         if (box.boxEditor)
         {
             if (box.boxEditor){
@@ -2387,7 +2442,6 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             }
         }
 
-        this.do_remove_box(box, false); // render later.
 
         this.header.updateModifiedStatus();
 
@@ -2405,7 +2459,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         if (!box.annotator)
             this.restore_box_points_color(box, render);
 
-        this.imageContext.image_manager.remove_box(box.obj_local_id);
+        this.imageContextManager.boxes_manager.remove_box(box.obj_local_id);
 
         this.floatLabelManager.remove_box(box);
         this.fastToolBox.hide();
@@ -2428,7 +2482,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
         this.header.clear_frame_info();
 
-        this.imageContext.clear_main_canvas();
+        this.imageContextManager.clear_main_canvas();
         this.boxEditor.detach();
 
 
@@ -2448,8 +2502,8 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
     //box edited
     this.on_box_changed = function(box){
 
-        if (!this.imageContext.hidden())
-            this.imageContext.image_manager.update_box(box);
+        if (!this.imageContextManager.hidden())
+            this.imageContextManager.boxes_manager.update_box(box);
 
         this.header.update_box_info(box);
         //floatLabelManager.update_position(box, false);  don't update position, or the ui is annoying.
@@ -2512,7 +2566,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             this.header.update_box_info(box);
             // this.floatLabelManager.update_position(box, true);
             // this.fastToolBox.setPos(this.floatLabelManager.getLabelEditorPos(box.obj_local_id));
-            this.imageContext.image_manager.onBoxSelected(box.obj_local_id, box.obj_type);
+            this.imageContextManager.boxes_manager.onBoxSelected(box.obj_local_id, box.obj_type);
 
 
             //this.boxEditor.attachBox(box);

@@ -3,6 +3,7 @@
 import * as THREE from './lib/three.module.js';
 import {globalObjectCategory} from './obj_cfg.js';
 import {saveWorldList} from "./save.js"
+import { intersect } from './util.js';
 
 
 function Annotation(sceneMeta, world, frameInfo){
@@ -41,6 +42,9 @@ function Annotation(sceneMeta, world, frameInfo){
         return null;
     };
 
+    this.findIntersectedBoxes = function(box){
+        return this.boxes.filter(b=>b!=box).filter(b=>intersect(box, b));
+    };
 
     this.preload = function(on_preload_finished){
         this.on_preload_finished = on_preload_finished;
@@ -49,7 +53,6 @@ function Annotation(sceneMeta, world, frameInfo){
 
     
 
-    this.loaded = false;
     this.go_cmd_received = false;
     this.webglScene = null;
     this.on_go_finished = null;
@@ -58,12 +61,7 @@ function Annotation(sceneMeta, world, frameInfo){
 
         if (this.preloaded){
 
-            
             //this.boxes.forEach(b=>this.webglScene.add(b));
-
-            
-            this.loaded = true;
-
             if (this.data.cfg.color_obj != "no"){
                 this.color_boxes();
             }
@@ -334,13 +332,13 @@ function Annotation(sceneMeta, world, frameInfo){
     };
 
     this.load_box = function(box){
-        if (this.loaded)
-            this.webglGroup.add(box);
+        
+        this.webglGroup.add(box);
     };
 
     this.unload_box = function(box){
-        if (this.loaded)
-            this.webglGroup.remove(box);
+        
+        this.webglGroup.remove(box);
     };
 
     this.remove_box=function(box){
@@ -477,7 +475,7 @@ function Annotation(sceneMeta, world, frameInfo){
                     old_box.position.set(nb.psr.position.x, nb.psr.position.y, nb.psr.position.z);
                     old_box.scale.set(nb.psr.scale.x, nb.psr.scale.y, nb.psr.scale.z);
                     old_box.rotation.set(nb.psr.rotation.x, nb.psr.rotation.y, nb.psr.rotation.z); 
-                    
+                    old_box.obj_attr = nb.obj_attr;
                     old_box.annotator = nb.annotator;
                     old_box.changed=false; // clear changed flag.
                     
@@ -496,8 +494,8 @@ function Annotation(sceneMeta, world, frameInfo){
                     b.boxEditor.detach("donthide");
                 }
 
-                if (this.loaded)
-                    this.webglGroup.remove(b);
+                this.webglGroup.remove(b);
+
                 this.remove_box(b);
             })
 
@@ -514,13 +512,11 @@ function Annotation(sceneMeta, world, frameInfo){
 
             this.color_boxes();
 
-            // add to scene if current world is active.
-            if (this.loaded){
-                // add new boxes
-                pendingBoxList.forEach(b=>{
-                    this.webglGroup.add(b);                    
-                })
-            }
+            // add new boxes
+            pendingBoxList.forEach(b=>{
+                this.webglGroup.add(b);                    
+            })
+        
 
             this.resetModified();
             
