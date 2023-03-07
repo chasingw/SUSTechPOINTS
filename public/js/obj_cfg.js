@@ -2,28 +2,20 @@
 
 class ObjectCategory
 {
-
-
     obj_type_map = {
         Car:            {color: '#86af49',  size:[4.5, 1.8, 1.5], attr:["door open", "trunk open"]},
         Pedestrian:     {color: '#ff0000',  size:[0.4, 0.5, 1.7], attr:["umbrella", "sitting", "squating", "bending over", "luggage"]},
         Van:            {color: '#00ff00',  size:[4.5, 1.8, 1.5], attr:["door open", "trunk open"]},
         Bus:            {color: '#ffff00',  size:[13, 3, 3.5]},
         Truck:          {color: '#00ffff',  size:[10., 2.8, 3]},
-        
         ScooterRider:   {color: '#ff8800',  size:[1.6, 0.6, 1.6], attr:["umbrella", "1 passenger", "2 passengers", "3 passengers"]},
-        // Scooter:        {color: '#aaaa00',  size:[1.6, 0.6, 1.0]},
-
-        
         BicycleRider:   {color: '#88ff00',  size:[1.6, 0.6, 1.7], attr:["umbrella", "1 passenger", "2 passengers", "3 passengers"]},
-        // Bicycle:        {color: '#ff8800',  size:[1.6, 0.6, 1.2], attr:["laying down"]},
-
-
-        // Motorcycle:     {color: '#aaaa00',  size:[1.6, 0.6, 1.2], attr:["umbrella"]},
         MotorcyleRider: {color: '#ff8800',  size:[1.6, 0.6, 1.6], attr:["umbrella", "1 passenger", "2 passengers", "3 passengers"]},
+        
         ExpressCar: {color: '#86af49',  size:[1.6, 0.6, 1.5]},
         
-        // PoliceCar:      {color: '#86af49',  size:[4.5, 1.8, 1.5]},
+
+        PoliceCar:      {color: '#86af49',  size:[4.5, 1.8, 1.5]},
         // TourCar:        {color: '#86af49',  size:[4.4, 1.5, 2.2]},
 
         // RoadWorker:     {color: '#ff0000',  size:[0.4, 0.5, 1.7]},
@@ -32,9 +24,7 @@ class ObjectCategory
         //Crowd:          {color: '#ff0000',  size:[1.6, 0.6, 1.2]},
 
         // BabyCart:       {color: '#ff0000',  size:[0.8, 0.5, 1.0]},
-        Cone:           {color: '#008888',  size:[0.3, 0.3, 0.6]},
-
-        ConstructionVehicle:    {color: '#aaaa00',  size:[4.0, 2.5, 2.5]},
+        Cone:           {color: '#ff0000',  size:[0.3, 0.3, 0.6]},
         // FireHydrant:    {color: '#ff0000',  size:[0.4, 0.4, 0.6]},
         // SaftyTriangle:  {color: '#ff0000',  size:[0.3, 0.4, 0.4]},
         // PlatformCart:   {color: '#ff0000',  size:[1.2, 0.8, 1.0]},
@@ -42,7 +32,7 @@ class ObjectCategory
         // RoadBarrel:     {color: '#ff0000',  size:[0.5, 0.5, 0.6]},
         // TrafficBarrier: {color: '#ff0000',  size:[1.5, 0.3, 1.2]},
         // LongVehicle:    {color: '#ff0000',  size:[16, 3, 3]},
-
+        ConstructionVehicle:    {color: '#aaaa00',  size:[4.0, 2.5, 2.5]},
         
         // BicycleGroup:   {color: '#ff0000',  size:[1.6, 0.6, 1.2]},
         
@@ -52,19 +42,22 @@ class ObjectCategory
         // Excavator:      {color: '#00ffff',  size:[6., 3, 3]},
 
         Animal:         {color: '#00aaff',  size:[1.6, 0.6, 1.2]},
-
         // TrashCan:         {color: '#00aaff',  size:[0.6, 0.4, 1.0]},
 
         // ForkLift:       {color: '#00aaff',  size:[5.0, 1.2, 2.0]},
-        TriMotorcycle:  {color: '#00aaff',  size:[2.6, 1.0, 1.6]},
+        Trimotorcycle:  {color: '#00aaff',  size:[2.6, 1.0, 1.6]},
         // FreightTricycle: {color: '#00aaff',  size:[2.6, 1.0, 1.6]},
         // Crane:          {color: '#00aaff',  size:[5.0, 1.2, 2.0]},
         // RoadRoller:     {color: '#00aaff',  size:[2.7, 1.5, 2.0]},
         // Bulldozer:      {color: '#00aaff',  size:[3.0, 2.0, 2.0]},
-
-        // DontCare:       {color: '#00ff88',  size:[4, 4, 3]},
-        // Misc:           {color: '#008888',  size:[4.5, 1.8, 1.5]},
-        // Unknown:        {color: '#008888',  size:[4.5, 1.8, 1.5]},
+        SightseeingCar :     {color: '#aaaa00',  size:[3, 2, 1.5]},
+        
+        DontCare:       {color: '#00ff88',  size:[4, 4, 3]},
+        Misc:           {color: '#008888',  size:[4.5, 1.8, 1.5]},
+        Unknown:        {color: '#008888',  size:[4.5, 1.8, 1.5]},
+        Scooter:        {color: '#aaaa00',  size:[1.6, 0.6, 1.0]},
+        Bicycle:        {color: '#ff8800',  size:[1.6, 0.6, 1.2], attr:["laying down"]},
+        Motorcycle:     {color: '#aaaa00',  size:[1.6, 0.6, 1.2], attr:["umbrella"]},
         // Unknown1:       {color: '#008888',  size:[4.5, 1.8, 1.5]},
         // Unknown2:       {color: '#008888',  size:[4.5, 1.8, 1.5]},
         // Unknown3:       {color: '#008888',  size:[4.5, 1.8, 1.5]},
