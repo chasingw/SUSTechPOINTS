@@ -2,6 +2,7 @@
 
 
 import { Editor } from "./editor.js";
+import { checkScene } from "./error_check.js";
 import {logger} from "./log.js"
 
 
@@ -55,7 +56,12 @@ var pendingSaveList = [];
 
 function saveWorldList(worldList){
 
-    pendingSaveList = pendingSaveList.concat(worldList);
+    //pendingSaveList = pendingSaveList.concat(worldList);
+
+    worldList.forEach(w=>{
+        if (!pendingSaveList.includes(w))
+            pendingSaveList.push(w);
+    });
 
     if (saveDelayTimer)
     {
@@ -66,12 +72,22 @@ function saveWorldList(worldList){
             
         logger.log("save delay expired.");
 
-        doSaveWorldList(pendingSaveList, ()=>{editor.header.updateModifiedStatus()});
+        //pandingSaveList will be cleared soon.
+        let scene = pendingSaveList[0].frameInfo.scene;
+        
+
+        doSaveWorldList(pendingSaveList, ()=>{
+            editor.header.updateModifiedStatus();
+
+            checkScene(scene);
+        });
 
         //reset
 
         saveDelayTimer = null;
         pendingSaveList = [];
+
+        
     }, 
 
     500);

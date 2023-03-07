@@ -24,6 +24,7 @@ import { ConfigUi } from './config_ui.js';
 import { MovableView } from './popup_dialog.js';
 import {globalKeyDownManager} from './keydown_manager.js';
 import {vector_range} from "./util.js"
+import { checkScene } from './error_check.js';
 
 function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
@@ -46,7 +47,6 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
     this.windowHeight= null;
     this.floatLabelManager = null;
     this.operation_state = {
-            mouse_right_down : false,
             key_pressed : false,
             box_navigate_index:0,
         };
@@ -65,6 +65,8 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
     this.boxOp = null;
     this.boxEditorManager  = null; 
     this.params={};
+
+    this.currentMainEditor = this;  // who is on focus, this or batch-editor-manager?
 
     this.init = function(editorUi) {
     
@@ -406,10 +408,10 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         case "label-batchedit":
             {
 
-                if (!this.checkBoxTrackId())
+                if (!this.ensureBoxTrackIdExist())
                     break;
 
-                if (!this.checkAnnBeforeBatchEdit())
+                if (!this.ensurePreloaded())
                     break;
                     
                 this.header.setObject(this.selected_box.obj_track_id);
@@ -706,6 +708,14 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             break;
         /// object
 
+        case 'cm-check-scene':
+            {
+                let scene = this.data.world.frameInfo.scene;
+                checkScene(scene);   
+                logger.show();             
+                logger.errorBtn.onclick();
+            }
+            break;
         case "cm-reset-view":
             this.resetView();
             break;
@@ -746,12 +756,45 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             }
             break;
         
+        case "cm-change-id-to-ref":
+            if (!this.ensureRefObjExist())
+                break;
 
+            this.setObjectId(this.autoAdjust.marked_object.ann.obj_id);
+            this.fastToolBox.setValue(this.selected_box.obj_type, 
+                this.selected_box.obj_track_id, 
+                this.selected_box.obj_attr);
+
+            break;
+        case "cm-change-id-to-ref-in-scene":
+
+            if (!this.ensureBoxTrackIdExist())
+                break;
+            if (!this.ensurePreloaded())
+                break;
+            if (!this.ensureRefObjExist())
+                break;
+
+            this.data.worldList.forEach(w=>{
+                let box = w.annotation.boxes.find(b=>b.obj_track_id === this.selected_box.obj_track_id &&  b.obj_type === this.selected_box.obj_type);
+                if (box && box !== this.selected_box){
+                    box.obj_track_id = this.autoAdjust.marked_object.ann.obj_id;
+                    w.annotation.setModified();
+                }
+            });
+
+            
+            this.setObjectId(this.autoAdjust.marked_object.ann.obj_id);
+            this.fastToolBox.setValue(this.selected_box.obj_type, 
+                this.selected_box.obj_track_id, 
+                this.selected_box.obj_attr);
+
+            break;
         case "cm-follow-ref":
 
-            if (!this.checkBoxTrackId())
+            if (!this.ensureBoxTrackIdExist())
                 break;
-            if (!this.checkAnnBeforeBatchEdit())
+            if (!this.ensurePreloaded())
                 break;
             this.autoAdjust.followsRef(this.selected_box);
             this.header.updateModifiedStatus();
@@ -763,9 +806,9 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             );
             break;
         case 'cm-follow-static-objects':
-            if (!this.checkBoxTrackId())
+            if (!this.ensureBoxTrackIdExist())
                 break;
-            if (!this.checkAnnBeforeBatchEdit())
+            if (!this.ensurePreloaded())
                 break;
             this.autoAdjust.followStaticObjects(this.selected_box);
             this.header.updateModifiedStatus();
@@ -780,7 +823,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             break;
         case "cm-sync-followers":
             
-            if (!this.checkAnnBeforeBatchEdit())
+            if (!this.ensurePreloaded())
                 break;
             this.autoAdjust.syncFollowers(this.selected_box);
             this.header.updateModifiedStatus();
@@ -809,7 +852,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
         case "cm-modify-obj-type":
             {
-                if (!this.checkAnnBeforeBatchEdit())
+                if (!this.ensurePreloaded())
                     break;
                 //let saveList=[];
                 this.data.worldList.forEach(w=>{
@@ -830,7 +873,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
         case "cm-modify-obj-size":
             {
-                if (!this.checkAnnBeforeBatchEdit())
+                if (!this.ensurePreloaded())
                     break;
                 //let saveList=[];
                 this.data.worldList.forEach(w=>{
@@ -881,8 +924,11 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
     
     this.resetView = function(targetPos){
 
-        if (!targetPos)
-            targetPos = {x:0, y:0, z:50};
+        if (!targetPos){
+            let center = this.data.world.lidar.computeCenter();
+            targetPos = {...center};//{x:0, y:0, z:50};
+            targetPos.z += 50;
+        }
         else
             targetPos.z = 50;
 
@@ -943,7 +989,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
     };
 
 
-    this.checkBoxTrackId = function()
+    this.ensureBoxTrackIdExist = function()
     {
         if (!this.selected_box.obj_track_id)
         {
@@ -954,12 +1000,19 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         return true;
     }
 
-    this.checkAnnBeforeBatchEdit = function()
+    this.ensureRefObjExist = function()
     {
+        if (!this.autoAdjust.marked_object)
+        {
+            this.infoBox.show("Notice", 'No reference object was selected');
+            return false;
+        }
+
         
-        
-        
-        
+        return true;
+    }
+    this.ensurePreloaded = function()
+    {
         let worldList = this.data.worldList.filter(w=>w.frameInfo.scene == this.data.world.frameInfo.scene);
         worldList = worldList.sort((a,b)=>a.frameInfo.frame_index - b.frameInfo.frame_index);
 
@@ -985,10 +1038,10 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
     this.interpolateInBackground = function()
     {
         
-        if (!this.checkBoxTrackId())
+        if (!this.ensureBoxTrackIdExist())
         return;
 
-        if (!this.checkAnnBeforeBatchEdit())
+        if (!this.ensurePreloaded())
             return;
 
         let worldList = this.data.worldList.filter(w=>w.frameInfo.scene == this.data.world.frameInfo.scene);
@@ -1003,10 +1056,10 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
     };
     this.enterBatchEditMode = function()
     {
-        if (!this.checkBoxTrackId())
+        if (!this.ensureBoxTrackIdExist())
            return;
 
-        if (!this.checkAnnBeforeBatchEdit())
+        if (!this.ensurePreloaded())
             return;
 
         this.header.setObject(this.selected_box.obj_track_id);
@@ -1021,10 +1074,10 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
     this.autoAnnInBackground = function()
     {
-        if (!this.checkBoxTrackId())
+        if (!this.ensureBoxTrackIdExist())
             return;
 
-        if (!this.checkAnnBeforeBatchEdit())
+        if (!this.ensurePreloaded())
             return;
 
         let worldList = this.data.worldList.filter(w=>w.frameInfo.scene == this.data.world.frameInfo.scene);
@@ -1048,6 +1101,8 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
 
     this.editBatch = function(sceneName, frame, objectTrackId, objectType){
 
+        
+
         //this.keydownDisabled = true;
         // hide something
         this.imageContextManager.hide();
@@ -1061,6 +1116,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         //this.controlGui.hide();
         this.editorUi.querySelector("#selectors").style.display='none';
         //this.editorUi.querySelector("#object-selector").style.display='none';
+        this.currentMainEditor = this.boxEditorManager;
 
         this.boxEditorManager.edit(this.data, 
             this.data.getMetaBySceneName(sceneName), 
@@ -1068,7 +1124,7 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             objectTrackId,
             objectType,
             (targetFrame, targetTrackId)=>{  //on exit
-                
+                this.currentMainEditor = this
                 //this.keydownDisabled = false;
                 this.viewManager.mainView.enable();
 
@@ -1107,6 +1163,13 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             );
     };
 
+    this.gotoObjectFrame = function(frame, objId)
+    {
+        this.load_world(this.data.world.frameInfo.scene, frame, ()=>{  // onfinished
+            this.makeVisible(objId);
+        });
+    };
+
     this.makeVisible = function(targetTrackId){
         let box = this.data.world.annotation.findBoxByTrackId(targetTrackId);
 
@@ -1124,8 +1187,9 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
         var sceneName = this.data.world.frameInfo.scene; //this.editorUi.querySelector("#scene-selector").value;
 
         let objectTrackId = event.currentTarget.value;
+        let obj = objIdManager.getObjById(objectTrackId);
 
-        this.editBatch(sceneName, null, objectTrackId);
+        this.editBatch(sceneName, null, objectTrackId, obj.category);
     };
 
     this.camera_changed= function(event){
@@ -2037,135 +2101,39 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
                 this.render();
                 break;
             
-            /*
-            case 'a':
-                if (this.selected_box){
-                    if (!operation_state.mouse_right_down){
-                        this.transform_bbox("x_move_down");
-                    }
-                    else{
-                        this.transform_bbox("x_scale_down");
-                    }
-                }
-                break;
-            case 'A':
-                this.transform_bbox("x_scale_down");
-                break;
-            case 'q':
-                if (this.selected_box){
-                    if (!operation_state.mouse_right_down){
-                        this.transform_bbox("x_move_up");
-                    }
-                    else{
-                        this.transform_bbox("x_scale_up");
-                    }                
-                }            
-                break;        
-            case 'Q':
-                this.transform_bbox("x_scale_up");
-                break;
-            */
-        case 's':
-                if (ev.ctrlKey){
-                    saveWorldList(this.data.worldList);
-                }
-                else if (this.selected_box)
-                {
-                    let v = Math.max(this.editorCfg.moveStep * this.selected_box.scale.x, 0.02);
-                    this.boxOp.translate_box(this.selected_box, 'x', -v);
-                    this.on_box_changed(this.selected_box);
-                }
-                break;
-        case 'w':
-            if (this.selected_box){
-                let v = Math.max(this.editorCfg.moveStep * this.selected_box.scale.x, 0.02);
-                this.boxOp.translate_box(this.selected_box, 'x', v);
-                this.on_box_changed(this.selected_box);                
-            }
-            break;
-        case 'a':
-            if (this.selected_box){
-                let v = Math.max(this.editorCfg.moveStep * this.selected_box.scale.y, 0.02);
-                this.boxOp.translate_box(this.selected_box, 'y', v);
-                this.on_box_changed(this.selected_box);                
-            }
-            break;
-        case 'd':
-            if (this.selected_box){
-                let v = Math.max(this.editorCfg.moveStep * this.selected_box.scale.y, 0.02);
-                this.boxOp.translate_box(this.selected_box, 'y', -v);
-                this.on_box_changed(this.selected_box);                
-            }
-            break;
-            /*
+            
             case 's':
-                if (ev.ctrlKey){
-                    saveWorld();
-                }
-                else if (this.selected_box){
-                    if (!operation_state.mouse_right_down){
-                        this.transform_bbox("y_move_down");
-                    }else{
-                        this.transform_bbox("y_scale_down");
+                    if (ev.ctrlKey){
+                        saveWorldList(this.data.worldList);
                     }
-                }
-                break;
-            case 'S':
-                if (ev.ctrlKey){
-                    saveWorld();
-                }
-                else if (this.selected_box){
-                    this.transform_bbox("y_scale_down");
-                }            
-                break;
-            case 'w':
-                if (this.selected_box){
-                    if (!operation_state.mouse_right_down)
-                        this.transform_bbox("y_move_up");
-                    else
-                        this.transform_bbox("y_scale_up");                
-                }
-                break;
-            case 'W':
-                if (this.selected_box){
-                    this.transform_bbox("y_scale_up");
-                }
-                break;
-
-
-            case 'd':
-                if (this.selected_box){
-                    if (operation_state.mouse_right_down){
-                        this.transform_bbox("z_scale_down");                    
-                    }
-                    else if (ev.ctrlKey){
-                        remove_selected_box();
-                        self.header.mark_changed_flag();
-                    }else{
-                        this.transform_bbox("z_move_down");
-                    }
-                    
-                }
-                break;
-            case 'D':
-                if (this.selected_box){
-                    this.transform_bbox("z_scale_down");
-                }            
-                break;        
-            case 'e':
-                    if (this.selected_box){
-                        if (!operation_state.mouse_right_down)
-                            this.transform_bbox("z_move_up");
-                        else
-                            this.transform_bbox("z_scale_up");                    
+                    else if (this.selected_box)
+                    {
+                        let v = Math.max(this.editorCfg.moveStep * this.selected_box.scale.x, 0.02);
+                        this.boxOp.translate_box(this.selected_box, 'x', -v);
+                        this.on_box_changed(this.selected_box);
                     }
                     break;
-            case 'E':
+            case 'w':
                 if (this.selected_box){
-                    this.transform_bbox("z_scale_up");
+                    let v = Math.max(this.editorCfg.moveStep * this.selected_box.scale.x, 0.02);
+                    this.boxOp.translate_box(this.selected_box, 'x', v);
+                    this.on_box_changed(this.selected_box);                
                 }
                 break;
-            */
+            case 'a':
+                if (this.selected_box){
+                    let v = Math.max(this.editorCfg.moveStep * this.selected_box.scale.y, 0.02);
+                    this.boxOp.translate_box(this.selected_box, 'y', v);
+                    this.on_box_changed(this.selected_box);                
+                }
+                break;
+            case 'd':
+                if (this.selected_box){
+                    let v = Math.max(this.editorCfg.moveStep * this.selected_box.scale.y, 0.02);
+                    this.boxOp.translate_box(this.selected_box, 'y', -v);
+                    this.on_box_changed(this.selected_box);                
+                }
+                break;
 
             case 'q':
                 if (this.selected_box){
@@ -2658,9 +2626,11 @@ function Editor(editorUi, wrapperUi, editorCfg, data, name="editor"){
             //self.auto_shrink_box(box);
             //self.on_box_changed(box);
 
+            let noscaling = event.shiftKey;
+
             self.boxOp.auto_rotate_xyz(box, null, null, function(b){
                 self.on_box_changed(b);
-            });
+            }, noscaling);
             return true;
         });
 
