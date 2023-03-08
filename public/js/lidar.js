@@ -1,4 +1,3 @@
-
 import * as THREE from './lib/three.module.js';
 import { matmul, euler_angle_to_rotate_matrix, transpose, psr_to_xyz, array_as_vector_range, array_as_vector_index_range, vector_range, euler_angle_to_rotate_matrix_3by3} from "./util.js"
 import { PCDLoader } from './lib/PCDLoader.js';
@@ -6,6 +5,59 @@ import {globalObjectCategory} from './obj_cfg.js';
 
 
 import {settings} from "./settings.js"
+
+function get_color_from_intensity(intensity, color, i){
+    function SRGBToLinear(c){
+        return c < 0.04045 ? c * 0.0773993808 : Math.pow(c * 0.9478672986 + 0.0521327014, 2.4);
+    }
+
+    function clamp(c, min, max){
+        if(c<min){
+            return min;
+        }
+        if(c>max){
+            return max;
+        }
+        return c;
+    }
+
+    const minValue = 0;
+    const maxValue = 255;
+    const valueDelta = Math.max(maxValue - minValue, Number.EPSILON);
+
+    const t = Math.max(0, Math.min((intensity - minValue) / valueDelta, 1));
+
+    const h = (1.0 - clamp(t, 0, 1)) * 5.0 + 1.0;
+    const colori = Math.floor(h);
+    let f = h % 1;
+    // if i is even
+    if (colori % 2 < 1) {
+        f = 1.0 - f;
+    }
+    const n = SRGBToLinear(1.0 - f);
+
+    if (colori <= 1){
+        color[i*3] = n;
+        color[i*3+1] = 0; 
+        color[i*3+2] = 1;
+    }else if (colori == 2){
+        color[i*3] = 0;
+        color[i*3+1] = n;
+        color[i*3+2] = 1;
+    }else if (colori == 3){
+        color[i*3] = 0;
+        color[i*3+1] = 1;
+        color[i*3+2] = n;
+    }else if (colori == 4){
+        color[i*3] = n;
+        color[i*3+1] = 1;
+        color[i*3+2] = 0;
+    }else if (colori >= 5){
+        color[i*3] = 1;
+        color[i*3+1] = n;
+        color[i*3+2] = 0;
+    }
+}
 
 function Lidar(sceneMeta, world, frameInfo){
     this.world = world;
@@ -55,8 +107,6 @@ function Lidar(sceneMeta, world, frameInfo){
         return pcd;
     };
 
-    
-
     this.preload=function(on_preload_finished){
         this.on_preload_finished = on_preload_finished;
 
@@ -94,10 +144,6 @@ function Lidar(sceneMeta, world, frameInfo){
                 {
                     pcd = _self.remove_high_ponts(pcd, _self.data.cfg.filterPointsZ);
                 }
-
-                
-
-                
                 
                 let position = pcd.position;
 
@@ -128,17 +174,18 @@ function Lidar(sceneMeta, world, frameInfo){
                         // map intensity to color
                         for (var i =0; i< pcd.intensity.length; ++i){
                             let intensity = pcd.intensity[i];
-                            intensity *= 8;
+                            // intensity *= 8;
                             
-                            if (intensity > 1)
-                                intensity = 1.0;
+                            // if (intensity > 1)
+                            //     intensity = 1.0;
                             
+                            // //color.push( 2 * Math.abs(0.5-intensity));
                             
-                            //color.push( 2 * Math.abs(0.5-intensity));
-                            
-                            color[i*3] =  intensity;
-                            color[i*3+1] = intensity;
-                            color[i*3+2] = 1 - intensity; 
+                            // color[i*3] =  intensity;
+                            // color[i*3+1] = intensity;
+                            // color[i*3+2] = 1 - intensity;
+
+                            get_color_from_intensity(intensity, color, i);
                         }
                     }
 
@@ -308,17 +355,20 @@ function Lidar(sceneMeta, world, frameInfo){
             // by intensity
             for (var i =0; i< this.pcd.intensity.length; ++i){
                 let intensity = this.pcd.intensity[i];
-                intensity *= 8;
+                // console.log("intensity = " + intensity)
+                // intensity *= 8;
                 
-                if (intensity > 1)
-                    intensity = 1.0;
+                // if (intensity > 1)
+                //     intensity = 1.0;
                 
                 
-                //color.push( 2 * Math.abs(0.5-intensity));
+                // //color.push( 2 * Math.abs(0.5-intensity));
                 
-                color[i*3] =  intensity;
-                color[i*3+1] = intensity;
-                color[i*3+2] = 1 - intensity; 
+                // color[i*3] =  intensity;
+                // color[i*3+1] = intensity;
+                // color[i*3+2] = 1 - intensity;
+
+                get_color_from_intensity(intensity, color, i);
             }
         }
         else
@@ -418,7 +468,6 @@ function Lidar(sceneMeta, world, frameInfo){
         var ck = this.get_position_key(center.x, center.y, center.z);
         var radius = Math.sqrt(scale.x*scale.x + scale.y*scale.y + scale.z*scale.z)/2;
         var radius_grid = Math.ceil(radius/this.points_index_grid_size);// + 1;
-
         var indices = [];
         for(var x = -radius_grid; x <= radius_grid; x++){
             for(var y = -radius_grid; y <= radius_grid; y++){
@@ -429,7 +478,6 @@ function Lidar(sceneMeta, world, frameInfo){
                 }
             }
         }
-
         console.log("found indices 1: " + indices.length);
         //return indices;
         */
@@ -1174,14 +1222,15 @@ function Lidar(sceneMeta, world, frameInfo){
             
             indices.forEach((i)=>{
                 let intensity = this.pcd.intensity[i];
-                intensity *= 8;
+                // intensity *= 8;
                 
-                if (intensity > 1)
-                    intensity = 1.0;
+                // if (intensity > 1)
+                //     intensity = 1.0;
 
-                color[i*3] =  intensity;
-                color[i*3+1] = intensity;
-                color[i*3+2] = 1 - intensity; 
+                // color[i*3] =  intensity;
+                // color[i*3+1] = intensity;
+                // color[i*3+2] = 1 - intensity;
+                get_color_from_intensity(intensity, color, i);
             });
                 
         }
@@ -1199,7 +1248,7 @@ function Lidar(sceneMeta, world, frameInfo){
     this.set_box_points_color=function(box, target_color){
         //var pos = this.points.geometry.getAttribute("position");
         var color = this.points.geometry.getAttribute("color");
-
+        
         if (!target_color){
             if (this.data.cfg.color_obj == "category")
             {
@@ -1218,7 +1267,6 @@ function Lidar(sceneMeta, world, frameInfo){
 
         if (target_color)
         {
-
             var indices = this._get_points_index_of_box(this.points, box, 1.0);
             indices.forEach(function(i){
                     color.array[i*3] = target_color.x;
@@ -1366,7 +1414,6 @@ function Lidar(sceneMeta, world, frameInfo){
         //compute center, no need to tranform to box coordinates, and can't do it in this stage.
         /*
         var extreme = array_as_vector_index_range(pos_array, 3, indices);
-
         var center = {
             x: (extreme.max[0]+extreme.min[0])/2,
             y: (extreme.max[1]+extreme.min[1])/2,
